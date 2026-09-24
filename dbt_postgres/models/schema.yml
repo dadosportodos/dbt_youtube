@@ -1,0 +1,56 @@
+version: 2
+
+# Dados crus inseridos pelo Python no schema public do PostgreSQL
+sources:
+  - name: public_raw
+    schema: public
+    tables:
+      - name: clientes
+      - name: produtos
+      - name: vendas
+      - name: itens_venda
+
+models:
+  # --- CAMADA BRONZE ---
+  - name: bronze_clientes
+    description: "Cópia 1:1 dos dados de clientes do schema public"
+  - name: bronze_produtos
+    description: "Cópia 1:1 dos dados de produtos do schema public"
+  - name: bronze_vendas
+    description: "Cópia 1:1 dos dados de vendas do schema public"
+  - name: bronze_itens_venda
+    description: "Cópia 1:1 dos dados de itens da venda do schema public"
+
+  # --- CAMADA SILVER ---
+  - name: silver_vendas
+    description: "Vendas filtradas com status CONCLUIDO e tipos ajustados"
+    columns:
+      - name: venda_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: silver_itens_venda
+    description: "Itens de venda com cálculo de valor total por linha"
+    columns:
+      - name: item_id
+        data_tests:
+          - unique
+          - not_null
+
+  # --- CAMADA GOLD ---
+  - name: gold_fct_vendas
+    description: "Fato de vendas consolidado por pedido e cliente"
+    columns:
+      - name: venda_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: gold_desempenho_produtos
+    description: "Métricas consolidadas de receita e total vendido por produto"
+    columns:
+      - name: produto_id
+        data_tests:
+          - unique
+          - not_null
