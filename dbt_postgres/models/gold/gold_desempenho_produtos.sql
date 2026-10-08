@@ -1,4 +1,3 @@
-{{ config(materialized='table', schema='gold') }}
 
 with produtos as (
     select * from {{ ref('bronze_produtos') }}

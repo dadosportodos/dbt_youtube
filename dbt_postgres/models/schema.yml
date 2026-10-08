@@ -1,56 +1,152 @@
 version: 2
 
-# Dados crus inseridos pelo Python no schema public do PostgreSQL
+# --- SOURCES (FONTES DE DADOS BRUTAS) ---
 sources:
   - name: public_raw
     schema: public
+    description: "Dados brutos gerados e inseridos via Python no schema public do PostgreSQL."
     tables:
       - name: clientes
+        description: "Tabela bruta de clientes contendo histórico de mutações cadastrais e dados não higienizados."
+        columns:
+          - name: cliente_id
+            description: "Identificador de negócio do cliente."
+          - name: updated_at
+            description: "Timestamp da ocorrência da alteração ou cadastro do cliente."
+
       - name: produtos
+        description: "Tabela bruta com o catálogo de produtos e preços base."
+        columns:
+          - name: produto_id
+            description: "Chave primária do produto."
+
       - name: vendas
+        description: "Tabela bruta de cabeçalho das transações de vendas."
+        columns:
+          - name: venda_id
+            description: "Identificador único da venda."
+          - name: updated_at
+            description: "Data/Hora de atualização do registro da venda (usado para Watermark/Incremental)."
+
       - name: itens_venda
+        description: "Tabela bruta contendo os itens pertencentes a cada transação."
+        columns:
+          - name: item_id
+            description: "Identificador único do item da venda."
 
+# --- MODELS ---
 models:
-  # --- CAMADA BRONZE ---
+  # ==========================================
+  # CAMADA BRONZE (RAW / STAGING)
+  # ==========================================
   - name: bronze_clientes
-    description: "Cópia 1:1 dos dados de clientes do schema public"
-  - name: bronze_produtos
-    description: "Cópia 1:1 dos dados de produtos do schema public"
-  - name: bronze_vendas
-    description: "Cópia 1:1 dos dados de vendas do schema public"
-  - name: bronze_itens_venda
-    description: "Cópia 1:1 dos dados de itens da venda do schema public"
-
-  # --- CAMADA SILVER ---
-  - name: silver_vendas
-    description: "Vendas filtradas com status CONCLUIDO e tipos ajustados"
+    description: "Cópia 1:1 e padronização inicial da tabela bruta de clientes."
     columns:
-      - name: venda_id
+      - name: cliente_id
+        description: "ID do cliente."
+        data_tests:
+          - not_null
+
+  - name: bronze_produtos
+    description: "Cópia 1:1 e padronização inicial da tabela bruta de produtos."
+    columns:
+      - name: produto_id
+        description: "ID único do produto."
         data_tests:
           - unique
           - not_null
 
-  - name: silver_itens_venda
-    description: "Itens de venda com cálculo de valor total por linha"
+  - name: bronze_vendas
+    description: "Cópia 1:1 da tabela bruta de transações de venda."
+    columns:
+      - name: venda_id
+        description: "ID único da venda."
+        data_tests:
+          - unique
+          - not_null
+
+  - name: bronze_itens_venda
+    description: "Cópia 1:1 da tabela bruta de itens transacionados."
     columns:
       - name: item_id
+        description: "ID do item da venda."
         data_tests:
           - unique
           - not_null
 
-  # --- CAMADA GOLD ---
-  - name: gold_fct_vendas
-    description: "Fato de vendas consolidado por pedido e cliente"
+  # ==========================================
+  # CAMADA SILVER (REFINAMENTO & REGRAS DE NEGÓCIO)
+  # ==========================================
+  - name: silver_vendas
+    description: "Vendas limpas e filtradas com status 'CONCLUIDO' e tipos de dados ajustados."
     columns:
       - name: venda_id
+        description: "Chave primária da venda concluída."
         data_tests:
           - unique
+          - not_null
+      - name: cliente_id
+        description: "ID do cliente associado à venda."
+        data_tests:
+          - not_null
+      - name: status
+        description: "Status do pedido (Filtrado apenas para CONCLUIDO nesta camada)."
+        data_tests:
+          - accepted_values:
+              values: ['CONCLUIDO']
+
+  - name: silver_itens_venda
+    description: "Itens de venda enriquecidos com cálculo de valor total por linha (quantidade * preco_unitario)."
+    columns:
+      - name: item_id
+        description: "Chave primária do item de venda."
+        data_tests:
+          - unique
+          - not_null
+      - name: venda_id
+        description: "Chave estrangeira referenciando a venda concluída."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('silver_vendas')
+              field: venda_id
+      - name: produto_id
+        description: "Chave estrangeira referenciando o produto."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('bronze_produtos')
+              field: produto_id
+
+  # ==========================================
+  # CAMADA GOLD (ANALÍTICA & CONSUMO)
+  # ==========================================
+  - name: gold_fct_vendas
+    description: "Tabela Fato consolidada no nível do pedido/venda contendo o valor total transacionado e métricas por cliente."
+    columns:
+      - name: venda_id
+        description: "Chave primária da tabela Fato de vendas."
+        data_tests:
+          - unique
+          - not_null
+      - name: cliente_id
+        description: "Identificador do cliente."
+        data_tests:
+          - not_null
+      - name: valor_total_venda
+        description: "Soma do valor de todos os itens da venda."
+        data_tests:
           - not_null
 
   - name: gold_desempenho_produtos
-    description: "Métricas consolidadas de receita e total vendido por produto"
+    description: "Visão agregada de desempenho de vendas por produto (receita total gerada, quantidade acumulada vendida e volume de pedidos)."
     columns:
       - name: produto_id
+        description: "Chave primária da dimensão/agregação por produto."
         data_tests:
           - unique
           - not_null
+      - name: total_receita
+        description: "Receita bruta acumulada gerada pelo produto em vendas concluídas."
+      - name: total_quantidade_vendida
+        description: "Unidades totais vendidas do produto."
