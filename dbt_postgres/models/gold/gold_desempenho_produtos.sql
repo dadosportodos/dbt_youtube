@@ -1,24 +1,28 @@
+{{ config(
+    materialized='table',
+    schema='gold'
+) }}
 
-with produtos as (
-    select * from {{ ref('bronze_produtos') }}
+WITH fct_vendas AS (
+    SELECT * FROM {{ ref('gold_fct_vendas') }}
 ),
 
-itens as (
-    select * from {{ ref('silver_itens_venda') }}
-),
-
-vendas_validas as (
-    select venda_id from {{ ref('silver_vendas') }}
+silver_produtos AS (
+    SELECT * FROM {{ ref('silver_produtos') }}
 )
 
-select
+SELECT
     p.produto_id,
     p.nome_produto,
     p.categoria,
-    count(distinct i.venda_id) as total_pedidos,
-    sum(i.quantidade) as total_unidades_vendidas,
-    sum(i.valor_total_item) as receita_total
-from produtos p
-inner join itens i on p.produto_id = i.produto_id
-inner join vendas_validas v on i.venda_id = v.venda_id
-group by 1, 2, 3
+    COUNT(DISTINCT f.venda_id) AS total_pedidos,
+    SUM(f.quantidade) AS quantidade_total_vendida,
+    SUM(f.valor_total_item) AS receita_total,
+    ROUND(AVG(f.valor_total_item), 2) AS ticket_medio_item
+FROM fct_vendas f
+INNER JOIN silver_produtos p 
+    ON f.produto_id = p.produto_id
+GROUP BY 
+    p.produto_id,
+    p.nome_produto,
+    p.categoria

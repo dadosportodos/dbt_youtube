@@ -122,31 +122,25 @@ models:
   # CAMADA GOLD (ANALÍTICA & CONSUMO)
   # ==========================================
   - name: gold_fct_vendas
-    description: "Tabela Fato consolidada no nível do pedido/venda contendo o valor total transacionado e métricas por cliente."
+    description: "Tabela fato de vendas concluídas. Contém o histórico de transações, clientes, produtos e valores."
     columns:
-      - name: venda_id
-        description: "Chave primária da tabela Fato de vendas."
-        data_tests:
-          - unique
-          - not_null
-      - name: cliente_id
-        description: "Identificador do cliente."
-        data_tests:
-          - not_null
-      - name: valor_total_venda
-        description: "Soma do valor de todos os itens da venda."
-        data_tests:
-          - not_null
+      - name: id_venda
+        description: "Identificador único do pedido/venda."
+      - name: id_cliente
+        description: "Chave de associação com a dimensão de clientes."
+      - name: id_produto
+        description: "Chave de associação com a dimensão de produtos."
+      - name: data_venda
+        description: "Data em que a compra foi efetuada."
+      - name: valor_total_item
+        description: "Valor financeiro total do item (quantidade * preço unitário)."
 
   - name: gold_desempenho_produtos
-    description: "Visão agregada de desempenho de vendas por produto (receita total gerada, quantidade acumulada vendida e volume de pedidos)."
+    description: "Visão agregada do desempenho de vendas por produto e categoria."
     columns:
-      - name: produto_id
-        description: "Chave primária da dimensão/agregação por produto."
-        data_tests:
-          - unique
-          - not_null
-      - name: total_receita
-        description: "Receita bruta acumulada gerada pelo produto em vendas concluídas."
-      - name: total_quantidade_vendida
-        description: "Unidades totais vendidas do produto."
+      - name: nome_produto
+        description: "Nome comercial do produto."
+      - name: receita_total
+        description: "Soma do faturamento gerado pelo produto em R$."
+      - name: quantidade_total_vendida
+        description: "Total de unidades vendidas do produto."

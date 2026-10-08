@@ -1,0 +1,5 @@
+- quantas vendas tive concluida por mes no ano de 2026 ?
+- quantas vendas concluidas tive no mes de julho de 2026 ?
+- quantos pedidos eu tive de da categoria Livros ?
+- qual o ticket médio da categoria Roupas ?
+- qual produto tem a maior e menor receita total ?
